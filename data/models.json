@@ -16,7 +16,13 @@
       "tdp": 575,
       "msrp": 1999,
       "launch": "2025-01-30",
-      "img_url": "https://m.media-amazon.com/images/I/51NJew2hGOL._AC_SL1000_.jpg"
+      "img_url": "https://m.media-amazon.com/images/I/51NJew2hGOL._AC_SL1000_.jpg",
+      "category": "gaming",
+      "src": {
+        "retail": "gph",
+        "used": "pcprice"
+      },
+      "cloud": "rtx-5090"
     },
     {
       "id": "rtx-5080",
@@ -29,7 +35,12 @@
       "tdp": 360,
       "msrp": 999,
       "launch": "2025-01-30",
-      "img_url": "https://m.media-amazon.com/images/I/7188PNls6yL._AC_SL1500_.jpg"
+      "img_url": "https://m.media-amazon.com/images/I/7188PNls6yL._AC_SL1500_.jpg",
+      "category": "gaming",
+      "src": {
+        "retail": "gph",
+        "used": "pcprice"
+      }
     },
     {
       "id": "rtx-5070-ti",
@@ -42,7 +53,13 @@
       "tdp": 300,
       "msrp": 749,
       "launch": "2025-02-20",
-      "img_url": "https://m.media-amazon.com/images/I/81nOlVpmYzL._AC_SL1500_.jpg"
+      "img_url": "https://m.media-amazon.com/images/I/81nOlVpmYzL._AC_SL1500_.jpg",
+      "category": "gaming",
+      "src": {
+        "retail": "gph",
+        "used": "pcprice"
+      },
+      "cloud": "rtx-5070-ti"
     },
     {
       "id": "rtx-5070",
@@ -55,7 +72,12 @@
       "tdp": 250,
       "msrp": 549,
       "launch": "2025-03-05",
-      "img_url": "https://m.media-amazon.com/images/I/41-qhlPQ3LL._SL1500_.jpg"
+      "img_url": "https://m.media-amazon.com/images/I/41-qhlPQ3LL._SL1500_.jpg",
+      "category": "gaming",
+      "src": {
+        "retail": "gph",
+        "used": "pcprice"
+      }
     },
     {
       "id": "rtx-5060-ti",
@@ -68,7 +90,13 @@
       "tdp": 180,
       "msrp": 429,
       "launch": "2025-04-16",
-      "img_url": "https://m.media-amazon.com/images/I/51hLLbOWmrL._AC_SL1000_.jpg"
+      "img_url": "https://m.media-amazon.com/images/I/51hLLbOWmrL._AC_SL1000_.jpg",
+      "category": "gaming",
+      "src": {
+        "retail": "gph",
+        "used": "pcprice"
+      },
+      "cloud": "rtx-5060-ti"
     },
     {
       "id": "rtx-4090",
@@ -81,7 +109,13 @@
       "tdp": 450,
       "msrp": 1599,
       "launch": "2022-10-12",
-      "img_url": "https://m.media-amazon.com/images/I/514QPBuqGyL._AC_SL1002_.jpg"
+      "img_url": "https://m.media-amazon.com/images/I/514QPBuqGyL._AC_SL1002_.jpg",
+      "category": "gaming",
+      "src": {
+        "retail": "gph",
+        "used": "pcprice"
+      },
+      "cloud": "rtx-4090"
     },
     {
       "id": "rx-9070-xt",
@@ -94,7 +128,12 @@
       "tdp": 304,
       "msrp": 599,
       "launch": "2025-03-06",
-      "img_url": "https://m.media-amazon.com/images/I/71uT4DfEBEL._AC_SL1500_.jpg"
+      "img_url": "https://m.media-amazon.com/images/I/71uT4DfEBEL._AC_SL1500_.jpg",
+      "category": "gaming",
+      "src": {
+        "retail": "gph",
+        "used": "pcprice"
+      }
     },
     {
       "id": "rx-9070",
@@ -107,7 +146,12 @@
       "tdp": 220,
       "msrp": 549,
       "launch": "2025-03-06",
-      "img_url": "https://m.media-amazon.com/images/I/61qhZ8lt8DL._AC_SL1500_.jpg"
+      "img_url": "https://m.media-amazon.com/images/I/61qhZ8lt8DL._AC_SL1500_.jpg",
+      "category": "gaming",
+      "src": {
+        "retail": "gph",
+        "used": "pcprice"
+      }
     },
     {
       "id": "rx-9060-xt",
@@ -120,7 +164,12 @@
       "tdp": 160,
       "msrp": 349,
       "launch": "2025-06-05",
-      "img_url": "https://m.media-amazon.com/images/I/61BECpJoQDL._SL1200_.jpg"
+      "img_url": "https://m.media-amazon.com/images/I/61BECpJoQDL._SL1200_.jpg",
+      "category": "gaming",
+      "src": {
+        "retail": "gph",
+        "used": "pcprice"
+      }
     },
     {
       "id": "rx-7900-xtx",
@@ -133,7 +182,12 @@
       "tdp": 355,
       "msrp": 999,
       "launch": "2022-12-13",
-      "img_url": "https://m.media-amazon.com/images/I/618zsgxRmYL._AC_SL1500_.jpg"
+      "img_url": "https://m.media-amazon.com/images/I/618zsgxRmYL._AC_SL1500_.jpg",
+      "category": "gaming",
+      "src": {
+        "retail": "gph",
+        "used": "pcprice"
+      }
     },
     {
       "id": "arc-b580",
@@ -147,7 +201,12 @@
       "msrp": 249,
       "launch": "2024-12-13",
       "img_url": "https://m.media-amazon.com/images/I/31IlpEZkRBL._SL1500_.jpg",
-      "img_tol": 60
+      "img_tol": 60,
+      "category": "gaming",
+      "src": {
+        "retail": "gph",
+        "used": "pcprice"
+      }
     },
     {
       "id": "arc-b570",
@@ -160,7 +219,12 @@
       "tdp": 150,
       "msrp": 219,
       "launch": "2025-01-16",
-      "img_url": "https://m.media-amazon.com/images/I/71u5d8I4H5L._AC_SL1500_.jpg"
+      "img_url": "https://m.media-amazon.com/images/I/71u5d8I4H5L._AC_SL1500_.jpg",
+      "category": "gaming",
+      "src": {
+        "retail": "gph",
+        "used": "pcprice"
+      }
     },
     {
       "id": "arc-a770",
@@ -173,7 +237,229 @@
       "tdp": 225,
       "msrp": 349,
       "launch": "2022-10-12",
-      "img_url": "https://m.media-amazon.com/images/I/913tP4kF9VL._AC_SL1500_.jpg"
+      "img_url": "https://m.media-amazon.com/images/I/913tP4kF9VL._AC_SL1500_.jpg",
+      "category": "gaming",
+      "src": {
+        "retail": "gph",
+        "used": "pcprice"
+      }
+    },
+    {
+      "id": "radeon-ai-pro-r9700",
+      "name": "Radeon AI PRO R9700",
+      "short": "AI PRO R9700",
+      "brand": "AMD",
+      "arch": "RDNA 4",
+      "vram": 32,
+      "mem": "GDDR6",
+      "tdp": 300,
+      "msrp": 1299,
+      "launch": "2025-10-27",
+      "category": "workstation",
+      "src": {
+        "gpupoet": "amd-radeon-ai-pro-r9700"
+      },
+      "img_url": "https://m.media-amazon.com/images/I/51Tgxp7pffL._AC_SL1500_.jpg"
+    },
+    {
+      "id": "radeon-pro-w7900",
+      "name": "Radeon PRO W7900",
+      "short": "PRO W7900",
+      "brand": "AMD",
+      "arch": "RDNA 3",
+      "vram": 48,
+      "mem": "GDDR6 ECC",
+      "tdp": 295,
+      "msrp": 3999,
+      "launch": "2023-04-13",
+      "category": "workstation",
+      "src": {
+        "gpupoet": "amd-radeon-pro-w7900"
+      },
+      "img_url": "https://m.media-amazon.com/images/I/61AFZ7efr9L._AC_SL1500_.jpg"
+    },
+    {
+      "id": "rtx-pro-6000",
+      "name": "RTX PRO 6000 Blackwell",
+      "short": "RTX PRO 6000",
+      "brand": "NVIDIA",
+      "arch": "Blackwell",
+      "vram": 96,
+      "mem": "GDDR7 ECC",
+      "tdp": 600,
+      "msrp": 8565,
+      "launch": "2025-04-15",
+      "category": "workstation",
+      "src": {
+        "gpupoet": "nvidia-rtx-pro-6000-blackwell-workstation"
+      },
+      "cloud": "rtx-pro-6000-blackwell",
+      "img_url": "https://m.media-amazon.com/images/I/51IvpsDHw4L._AC_SL1000_.jpg"
+    },
+    {
+      "id": "instinct-mi300x",
+      "name": "Instinct MI300X",
+      "short": "MI300X",
+      "brand": "AMD",
+      "arch": "CDNA 3",
+      "vram": 192,
+      "mem": "HBM3",
+      "tdp": 750,
+      "msrp": 15000,
+      "msrp_est": true,
+      "launch": "2023-12-06",
+      "category": "datacenter",
+      "src": {
+        "gpupoet": "amd-instinct-mi300x"
+      },
+      "cloud": "mi300x",
+      "img_url": "https://www.amd.com/content/dam/amd/en/images/products/data-centers/2325906-amd-instinct-mi300x-product.jpg"
+    },
+    {
+      "id": "h100-pcie",
+      "name": "H100 PCIe 80GB",
+      "short": "H100",
+      "brand": "NVIDIA",
+      "arch": "Hopper",
+      "vram": 80,
+      "mem": "HBM2e",
+      "tdp": 350,
+      "msrp": 30000,
+      "msrp_est": true,
+      "launch": "2022-09-20",
+      "category": "datacenter",
+      "src": {
+        "gpupoet": "nvidia-h100-pcie"
+      },
+      "cloud": "h100-pcie-80gb",
+      "img_url": "https://www.nvidia.com/content/dam/en-zz/Solutions/gtcs22/data-center/h100/h100-og.jpg",
+      "img_credit": "NVIDIA press image (H100 SXM module shown; the PCIe card uses the same GPU)"
+    },
+    {
+      "id": "h200-nvl",
+      "name": "H200 NVL 141GB",
+      "short": "H200 NVL",
+      "brand": "NVIDIA",
+      "arch": "Hopper",
+      "vram": 141,
+      "mem": "HBM3e",
+      "tdp": 600,
+      "msrp": 32000,
+      "msrp_est": true,
+      "launch": "2024-11-18",
+      "category": "datacenter",
+      "src": {
+        "gpupoet": "nvidia-h200-nvl"
+      },
+      "cloud": "h200-nvl",
+      "img_url": "https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/h200/h200nvl-ari.jpg"
+    },
+    {
+      "id": "a100-pcie",
+      "name": "A100 PCIe 80GB",
+      "short": "A100",
+      "brand": "NVIDIA",
+      "arch": "Ampere",
+      "vram": 80,
+      "mem": "HBM2e",
+      "tdp": 300,
+      "msrp": 15000,
+      "msrp_est": true,
+      "launch": "2021-06-28",
+      "category": "datacenter",
+      "src": {
+        "gpupoet": "nvidia-a100-pcie"
+      },
+      "cloud": "a100-pcie-80gb",
+      "img_url": "https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a100/nvidia-a100-pcie-3qtr-top-left-2c50-d@2x.jpg"
+    },
+    {
+      "id": "l40s",
+      "name": "L40S 48GB",
+      "short": "L40S",
+      "brand": "NVIDIA",
+      "arch": "Ada Lovelace",
+      "vram": 48,
+      "mem": "GDDR6 ECC",
+      "tdp": 350,
+      "msrp": 8000,
+      "msrp_est": true,
+      "launch": "2023-08-08",
+      "category": "datacenter",
+      "src": {
+        "gpupoet": "nvidia-l40s"
+      },
+      "cloud": "l40s",
+      "img_url": "https://m.media-amazon.com/images/I/41UW1TtsdoL._AC_SL1152_.jpg"
+    },
+    {
+      "id": "dgx-spark",
+      "name": "DGX Spark (GB10, 128GB)",
+      "short": "DGX Spark",
+      "brand": "NVIDIA",
+      "arch": "Grace Blackwell GB10",
+      "vram": 128,
+      "mem": "LPDDR5X unified",
+      "tdp": 240,
+      "msrp": 3999,
+      "launch": "2025-10-15",
+      "category": "system",
+      "src": {
+        "list": true
+      },
+      "list_history": [
+        [
+          "2025-10-15",
+          3999,
+          "Launch, NVIDIA Marketplace"
+        ],
+        [
+          "2026-02-01",
+          4699,
+          "First increase (Feb 2026)"
+        ],
+        [
+          "2026-10-02",
+          6950,
+          "Memory-cost increase"
+        ]
+      ],
+      "img_url": "https://commons.wikimedia.org/wiki/File:Nvidia_DGX_Spark_oblique_view_dllu.jpg",
+      "img_credit": "Photo: Daniel Lu (Dllu), CC BY-SA 4.0, via Wikimedia Commons, background removed"
+    },
+    {
+      "id": "strix-halo",
+      "name": "Strix Halo (Framework Desktop, Ryzen AI Max+ 395, 128GB)",
+      "short": "Strix Halo",
+      "brand": "AMD",
+      "arch": "Ryzen AI Max+ 395 / Radeon 8060S",
+      "vram": 128,
+      "mem": "LPDDR5X unified",
+      "tdp": 140,
+      "msrp": 1999,
+      "launch": "2025-08-01",
+      "category": "system",
+      "src": {
+        "list": true
+      },
+      "list_history": [
+        [
+          "2025-08-01",
+          1999,
+          "Framework Desktop 128GB launch"
+        ],
+        [
+          "2026-01-15",
+          2459,
+          "RAM-shortage increase (Jan 2026)"
+        ],
+        [
+          "2026-10-31",
+          3449,
+          "Framework US store, DIY kit"
+        ]
+      ],
+      "img_url": "https://static.frame.work/6m8vx8xzu8sb01f2im6g323w3q32"
     }
   ]
 }

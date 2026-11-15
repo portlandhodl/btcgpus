@@ -16,6 +16,16 @@
   const SANS = 'Inter, system-ui, sans-serif';
   const MAX_SERIES = 8;
   const DEFAULT_SEL = ["rtx-5090", "rtx-5080", "rx-9070-xt", "arc-b580"];
+  const CATS = { gaming: "Gaming", workstation: "Workstation", datacenter: "Data center", system: "AI system" };
+  const PRICE_KIND = {
+    retail: { avg: "Retail avg", low: "Lowest", note: "US retail, average across retailers" },
+    ask: { avg: "Lowest asks", low: "Lowest asks", note: "average of the 3 cheapest eBay/Amazon asking prices (GPU Poet)" },
+    list: { avg: "List price", low: "List price", note: "official list price, updated when the maker changes it" },
+  };
+  const CLOUD = [ // fixed order = fixed colour slot
+    ["h100-sxm-80gb", "H100 SXM"], ["h200-sxm", "H200 SXM"], ["b200-sxm", "B200"], ["b300-sxm", "B300"],
+    ["mi300x", "MI300X"], ["rtx-pro-6000-blackwell", "RTX PRO 6000"], ["a100-sxm-80gb", "A100 SXM"], ["rtx-5090", "RTX 5090"],
+  ];
   const VCP = new Set(["rtx-5090", "rtx-5080", "rtx-5070-ti", "rtx-5070", "rtx-5060-ti", "rx-9070-xt", "rx-9070", "rx-9060-xt", "arc-b580", "arc-b570"]);
 
   // ------------------------------------------------------------------ utils
@@ -35,9 +45,13 @@
   const metricName = { gpb: "GPUs per BTC", sats: "Sats per GPU", usd: "USD price", idx: "Indexed GPUs per BTC" };
   const basisName = { avg: "retail average", min: "lowest retail listing", msrp: "launch MSRP" };
 
+  const vis = (m) => (S.brand === "all" || m.brand === S.brand) && (S.cat === "all" || m.category === S.cat);
+  const estMark = (m) => (m.msrp_est ? "*" : "");
+
   // ------------------------------------------------------------------ state
   const S = {
-    metric: "gpb", basis: "avg", range: "all", log: false, brand: "all",
+    metric: "gpb", basis: "avg", range: "all", log: false, brand: "all", cat: "all",
+    cloudSel: new Set(["h100-sxm-80gb", "h200-sxm", "b200-sxm", "b300-sxm", "mi300x", "rtx-5090"]), cloudStat: "median",
     sel: [], slot: new Map(), unit: "btc", sort: { key: "ratio", dir: -1 },
   };
   let M = [], byId = {}, BTC = { d: [], p: [] }, DATA, CFG;
@@ -57,13 +71,21 @@
     const last = BTC.d[BTC.d.length - 1], btcNow = BTC.p[BTC.p.length - 1];
     M = cfg.models.map((m) => {
       const g = data.gpus[m.id] || { retail: {}, used: {}, listings: [] };
-      const retail = Object.entries(g.retail).map(([d, [mn, av]]) => ({ d, min: mn, avg: av }));
+      let retail = Object.entries(g.retail).map(([d, [mn, av]]) => ({ d, min: mn, avg: av }));
+      if (m.list_history) { // step series from official list-price changes
+        retail = []; const steps = m.list_history.slice().sort((a, b) => (a[0] < b[0] ? -1 : 1));
+        for (let d = steps[0][0], i = 0; d <= last; d = addDays(d, 1)) {
+          while (i + 1 < steps.length && steps[i + 1][0] <= d) i++;
+          retail.push({ d, min: steps[i][1], avg: steps[i][1] });
+        }
+      }
       const usedK = Object.keys(g.used || {});
       const used = usedK.length ? { date: usedK[usedK.length - 1], ...g.used[usedK[usedK.length - 1]] } : null;
       const usedHist = usedK.map((k) => [k, g.used[k].median]);
       const cur = retail[retail.length - 1];
       const launchBtc = btcAt(m.launch);
-      const o = { ...m, retail, used, usedHist, listings: g.listings || [], retailMap: new Map(retail.map((r) => [r.d, r])) };
+      const kind = m.list_history ? "list" : m.src && m.src.gpupoet ? "ask" : "retail";
+      const o = { ...m, kind, retail, used, usedHist, listings: g.listings || [], retailMap: new Map(retail.map((r) => [r.d, r])) };
       o.price = cur ? cur.avg : null;
       o.low = cur ? cur.min : null;
       o.ratio = o.price ? btcNow / o.price : null;
@@ -156,7 +178,7 @@
   // ------------------------------------------------------------------ hero
   let heroI = 0, heroTimer;
   function renderHero() {
-    const order = ["rtx-5090", "rtx-5080", "rx-9070-xt", "arc-b580", "rtx-5070-ti", "rx-9060-xt", "rtx-5070", "arc-b570", "rx-9070", "rtx-4090", "rx-7900-xtx", "rtx-5060-ti", "arc-a770"]
+    const order = ["rtx-5090", "dgx-spark", "rx-9070-xt", "h100-pcie", "arc-b580", "strix-halo", "rtx-5080", "radeon-ai-pro-r9700", "rtx-pro-6000", "rx-9060-xt", "instinct-mi300x", "rtx-5070-ti", "h200-nvl", "arc-b570", "rx-9070", "rtx-4090", "a100-pcie", "rx-7900-xtx", "l40s", "rtx-5060-ti", "radeon-pro-w7900", "arc-a770", "rtx-5070"]
       .map((id) => byId[id]).filter((m) => m && m.ratio);
     const show = (m) => {
       const img = $("#heroImg"), num = $("#heroNum"), mod = $("#heroModel");
@@ -165,9 +187,9 @@
         img.src = `assets/img/gpus/${m.id}.webp`; img.alt = m.name;
         num.textContent = ratio(m.ratio);
         mod.textContent = m.short + (m.ratio >= 2 ? "s" : "");
-        $("#heroSub").textContent = `${usd(m.price)} avg retail · ${sats(m.sats)} sats each`;
+        $("#heroSub").textContent = `${usd(m.price)} ${m.kind === "list" ? "list price" : m.kind === "ask" ? "lowest asks" : "avg retail"} · ${sats(m.sats)} sats each`;
         const s = m.sinceLaunch;
-        $("#heroNote").innerHTML = `At launch on ${fmtDate(m.launch)}, 1&nbsp;BTC bought <b>${ratio(m.launchRatio)}</b> at the ${usd(m.msrp)} MSRP. ` +
+        $("#heroNote").innerHTML = `At launch on ${fmtDate(m.launch)}, 1&nbsp;BTC bought <b>${ratio(m.launchRatio)}</b> at the ${usd(m.msrp)} ${m.msrp_est ? "estimated launch price" : "MSRP"}. ` +
           `Bitcoin's GPU purchasing power is <b class="${cls(s)}">${pct(s)}</b> since then.`;
         img.onload = () => img.classList.remove("swap");
         num.classList.remove("fade");
@@ -196,6 +218,7 @@
       <div class="card" data-id="${m.id}" data-brand="${m.brand}" role="button" tabindex="0" aria-label="${esc(m.name)} details">
         <button class="add" type="button" aria-pressed="false" aria-label="Add ${esc(m.short)} to chart" title="Add to chart">＋</button>
         <div class="img"><img src="assets/img/gpus/${m.id}.webp" alt="${esc(m.name)}" loading="lazy"></div>
+        ${m.category !== "gaming" ? `<span class="tag">${CATS[m.category]}</span>` : ""}
         <div class="name"><i class="b-${m.brand}"></i>${esc(m.short)}</div>
         <div class="big">${ratio(m.ratio)}<small>per BTC</small></div>
         <div class="meta"><span>${usd(m.price)} · ${sats(m.sats)} sats</span><span class="${cls(m.chg30)}">${pct(m.chg30, 1)} 30d</span></div>
@@ -215,7 +238,7 @@
       el.classList.toggle("on", on);
       el.style.setProperty("--sc", on ? colorOf(id) : "transparent");
       const b = $(".add", el); b.setAttribute("aria-pressed", on); b.textContent = on ? "✓" : "＋";
-      el.classList.toggle("hide", S.brand !== "all" && el.dataset.brand !== S.brand);
+      el.classList.toggle("hide", !vis(byId[id]));
     });
   }
 
@@ -309,11 +332,11 @@
 
   // ------------------------------------------------------------------ leaderboard
   const LB_COLS = [
-    { key: "name", label: "GPU", val: (m) => m.short, fmt: (m) => `<span class="m"><img src="assets/img/gpus/${m.id}.webp" alt="" loading="lazy"><i class="b-${m.brand}"></i>${esc(m.short)}</span>` },
+    { key: "name", label: "GPU", val: (m) => m.short, fmt: (m) => `<span class="m"><img src="assets/img/gpus/${m.id}.webp" alt="" loading="lazy"><i class="b-${m.brand}"></i>${esc(m.short)}${m.category !== "gaming" ? `<span class="tag">${CATS[m.category]}</span>` : ""}</span>` },
     { key: "vram", label: "VRAM", val: (m) => m.vram, fmt: (m) => m.vram + " GB" },
-    { key: "msrp", label: "MSRP", val: (m) => m.msrp, fmt: (m) => usd(m.msrp) },
-    { key: "price", label: "Retail avg", val: (m) => m.price, fmt: (m) => usd(m.price) },
-    { key: "low", label: "Lowest", val: (m) => m.low, fmt: (m) => usd(m.low) },
+    { key: "msrp", label: "MSRP", val: (m) => m.msrp, fmt: (m) => usd(m.msrp) + estMark(m) },
+    { key: "price", label: "Price now", val: (m) => m.price, fmt: (m) => `<span title="${PRICE_KIND[m.kind].note}">${usd(m.price)}${m.kind !== "retail" ? `<sup class="k-${m.kind}">${m.kind === "list" ? "L" : "A"}</sup>` : ""}</span>` },
+    { key: "low", label: "Lowest", val: (m) => (m.kind === "retail" ? m.low : null), fmt: (m) => (m.kind === "retail" ? usd(m.low) : "–") },
     { key: "used", label: "eBay sold", val: (m) => m.used?.median, fmt: (m) => m.used ? usd(m.used.median) : "–" },
     { key: "premium", label: "vs MSRP", val: (m) => m.premium, fmt: (m) => `<span class="${m.premium > 0 ? "down" : "up"}">${pct(m.premium)}</span>` },
     { key: "ratio", label: "GPUs / BTC", val: (m) => m.ratio, fmt: (m) => `<b>${ratio(m.ratio)}</b>`, bar: true },
@@ -324,7 +347,7 @@
   ];
   function renderLB() {
     const { key, dir } = S.sort, col = LB_COLS.find((c) => c.key === key);
-    const rows = M.filter((m) => S.brand === "all" || m.brand === S.brand).slice().sort((a, b) => {
+    const rows = M.filter((m) => vis(m)).slice().sort((a, b) => {
       const x = col.val(a), y = col.val(b);
       if (x == null) return 1; if (y == null) return -1;
       return (typeof x === "string" ? x.localeCompare(y) : x - y) * dir;
@@ -342,15 +365,19 @@
   }
 
   // ------------------------------------------------------------------ dumbbell + vram
+  function fitHeight(id, n, per = 30, min = 260) {
+    document.getElementById(id).style.height = Math.max(min, n * per + 60) + "px";
+  }
   function renderDumbbell() {
-    const list = M.filter((m) => m.ratio && (S.brand === "all" || m.brand === S.brand)).sort((a, b) => a.ratio - b.ratio);
+    const list = M.filter((m) => m.ratio && (vis(m))).sort((a, b) => a.ratio - b.ratio);
+    fitHeight("dumbbell", list.length);
     const ch = mk("dumbbell");
     ch.setOption({
       backgroundColor: "transparent",
       grid: { left: 8, right: 56, top: 8, bottom: 28, containLabel: true },
       tooltip: { ...tooltipBase(), trigger: "item", formatter: (p) => { const m = list[p.value[2]];
         return `<b>${esc(m.name)}</b><br>Launch ${fmtDate(m.launch)}: <b style="font-family:${MONO}">${ratio(m.launchRatio)}</b> per BTC<br><span style="color:${C.muted}">${usd(m.msrp)} MSRP · BTC ${usd(m.launchBtc)}</span><br>Today: <b style="font-family:${MONO}">${ratio(m.ratio)}</b> per BTC<br><span style="color:${C.muted}">${usd(m.price)} retail · BTC ${usd(BTC.p[BTC.p.length - 1])}</span><br><b class="${cls(m.sinceLaunch)}" style="color:${m.sinceLaunch >= 0 ? C.good : C.bad}">${pct(m.sinceLaunch)}</b>`; } },
-      xAxis: { type: "log", ...baseAxis(), axisLabel: { ...baseAxis().axisLabel, formatter: (v) => num(v, 0) }, min: 1 },
+      xAxis: { type: "log", ...baseAxis(), axisLabel: { ...baseAxis().axisLabel, formatter: (v) => (v < 1 ? num(v, 1) : num(v, 0)) } },
       yAxis: { type: "category", data: list.map((m) => m.short), ...baseAxis(), splitLine: { show: false }, axisLine: { show: false }, axisLabel: { color: C.ink2, fontFamily: SANS, fontSize: 12, fontWeight: 600 } },
       series: [{
         type: "custom", encode: { x: [0, 1], y: 2 },
@@ -370,7 +397,8 @@
     ch.off("click"); ch.on("click", (p) => openDrawer(list[p.value[2]].id));
   }
   function renderVram() {
-    const list = M.filter((m) => m.satsPerGB && (S.brand === "all" || m.brand === S.brand)).sort((a, b) => b.satsPerGB - a.satsPerGB);
+    const list = M.filter((m) => m.satsPerGB && (vis(m))).sort((a, b) => b.satsPerGB - a.satsPerGB);
+    fitHeight("vramChart", list.length);
     const ch = mk("vramChart");
     ch.setOption({
       backgroundColor: "transparent",
@@ -399,7 +427,7 @@
     const sl = $("#tmSlider"); sl.max = TM.dates.length - 1; sl.value = TM.i = TM.dates.length - 1;
     sl.oninput = () => { stopTM(); TM.i = +sl.value; renderTM(); };
     $("#tmPlay").onclick = () => (TM.timer ? stopTM() : playTM());
-    mk("tmChart"); renderTM(true);
+    renderTM(true);
   }
   function playTM() {
     if (TM.i >= TM.dates.length - 1) TM.i = 0;
@@ -415,8 +443,9 @@
     const d = TM.dates[TM.i];
     $("#tmDate").textContent = fmtDate(d);
     $("#tmBtc").textContent = "BTC " + usd(btcAt(d));
-    const list = M.filter((m) => S.brand === "all" || m.brand === S.brand);
+    const list = M.filter((m) => vis(m));
     const vals = list.map((m) => tmValue(m, d));
+    if (first) { fitHeight("tmChart", list.length, 28, 300); mk("tmChart"); }
     const ch = charts.tmChart;
     ch.setOption({
       backgroundColor: "transparent",
@@ -441,13 +470,57 @@
     if (first) { ch.off("click"); ch.on("click", (p) => openDrawer(list[p.dataIndex].id)); }
   }
 
+  // ------------------------------------------------------------------ cloud rental
+  function renderCloud() {
+    if (!DATA.cloud) return;
+    const btcSeries = (slug) => {
+      const c = DATA.cloud[slug]; if (!c) return [];
+      return Object.entries(c.series).map(([d, [mn, med]]) => [d, btcAt(d) / (S.cloudStat === "min" ? mn : med)]);
+    };
+    const avail = CLOUD.filter(([slug]) => DATA.cloud[slug]);
+    $("#cloudChips").innerHTML = avail.map(([slug, name], i) => {
+      const on = S.cloudSel.has(slug), col = C.slots[CLOUD.findIndex((c) => c[0] === slug)];
+      return `<button type="button" class="${on ? "" : "dim"}" data-slug="${slug}" aria-pressed="${on}"><i class="sw" style="background:${col}"></i>${name}</button>`;
+    }).join("");
+    $$("#cloudChips button").forEach((b) => b.onclick = () => {
+      const sl = b.dataset.slug; S.cloudSel.has(sl) ? S.cloudSel.delete(sl) : S.cloudSel.add(sl); renderCloud();
+    });
+    const ch = charts.cloudChart || mk("cloudChart");
+    const series = avail.filter(([slug]) => S.cloudSel.has(slug)).map(([slug, name]) => {
+      const col = C.slots[CLOUD.findIndex((c) => c[0] === slug)];
+      return { name, id: slug, type: "line", data: btcSeries(slug), showSymbol: false, lineStyle: { width: 2, color: col }, itemStyle: { color: col, borderColor: C.surface, borderWidth: 2 },
+        emphasis: { focus: "series" }, blur: { lineStyle: { opacity: 0.15 } },
+        endLabel: { show: true, formatter: (p) => `${name}  ${num(p.value[1], 0)} h`, color: C.ink2, fontFamily: SANS, fontSize: 11, fontWeight: 600 }, labelLayout: { moveOverlap: "shiftY" } };
+    });
+    ch.setOption({
+      backgroundColor: "transparent", grid: { left: 8, right: 150, top: 16, bottom: 30, containLabel: true },
+      tooltip: { ...tooltipBase(), trigger: "axis", axisPointer: { lineStyle: { color: C.axis } },
+        formatter: (ps) => `<b>${fmtDate(ps[0].value[0])}</b><br>` + ps.slice().sort((a, b) => b.value[1] - a.value[1]).map((p) => {
+          const c = DATA.cloud[p.seriesId].series[p.value[0]]; const hr = c ? (S.cloudStat === "min" ? c[0] : c[1]) : null;
+          return `<div style="display:flex;gap:14px;justify-content:space-between"><span><i style="display:inline-block;width:10px;height:3px;border-radius:2px;background:${p.color};margin-right:7px;vertical-align:middle"></i>${p.seriesName}</span><span style="font-family:${MONO}"><b>${num(p.value[1], 0)} h</b> <span style="color:${C.muted}">${usd(hr, 2)}/h</span></span></div>`; }).join("") +
+          `<div style="margin-top:6px;color:${C.muted}">BTC ${usd(btcAt(ps[0].value[0]))}</div>` },
+      xAxis: { type: "time", ...baseAxis(), splitLine: { show: false }, axisLabel: { ...baseAxis().axisLabel, hideOverlap: true } },
+      yAxis: { type: "log", ...baseAxis(), axisLine: { show: false }, axisLabel: { ...baseAxis().axisLabel, formatter: (v) => (v >= 1000 ? num(v / 1000, 0) + "k" : num(v, 0)) + " h" } },
+      series,
+    }, { replaceMerge: ["series"] });
+    const btcNow = BTC.p[BTC.p.length - 1];
+    $("#cloudTable").innerHTML = `<thead><tr><th>Cloud GPU</th><th>Median $/hr</th><th>Cheapest $/hr</th><th>Providers</th><th>GPU-hours / BTC</th><th>Days of 24/7 / BTC</th><th>30d</th></tr></thead><tbody>${
+      avail.map(([slug, name]) => {
+        const c = cloudNow(slug); if (!c) return "";
+        const hr = S.cloudStat === "min" ? c.min : c.med, h = btcNow / hr;
+        const ks = Object.keys(DATA.cloud[slug].series), t = addDays(c.date, -30), old = ks.filter((k) => k <= t).pop();
+        const oh = old ? btcAt(old) / DATA.cloud[slug].series[old][S.cloudStat === "min" ? 0 : 1] : null;
+        return `<tr><td><span class="m"><i class="sw" style="background:${C.slots[CLOUD.findIndex((x) => x[0] === slug)]};width:10px"></i>${esc(c.name)}</span></td><td>${usd(c.med, 2)}</td><td>${usd(c.min, 2)}</td><td>${c.prov}</td><td><b>${num(h, 0)}</b></td><td>${num(h / 24, 1)}</td><td class="${cls(oh ? h / oh - 1 : null)}">${oh ? pct(h / oh - 1, 1) : "–"}</td></tr>`;
+      }).join("")}</tbody>`;
+  }
+
   // ------------------------------------------------------------------ calculator
   function renderCalc() {
     const amt = parseFloat($("#calcAmt").value) || 0;
     const btcNow = BTC.p[BTC.p.length - 1];
     const btc = S.unit === "btc" ? amt : S.unit === "sats" ? amt / 1e8 : amt / btcNow;
     $("#calcEquiv").textContent = `= ${num(btc, btc < 1 ? 6 : 4)} BTC · ${sats(btc * 1e8)} sats · ${usd(btc * btcNow)}`;
-    const list = M.filter((m) => m.price && (S.brand === "all" || m.brand === S.brand)).sort((a, b) => b.price - a.price);
+    const list = M.filter((m) => m.price && (vis(m))).sort((a, b) => b.price - a.price);
     $("#calcGrid").innerHTML = list.map((m) => {
       const n = (btc * btcNow) / m.price, then = btc * m.launchRatio;
       const whole = Math.floor(n), cap = 48, pips = Math.min(whole, cap);
@@ -462,6 +535,7 @@
   function links(m) {
     const q = encodeURIComponent(m.name.replace(/^(GeForce|Radeon) /, (s) => s));
     const qs = encodeURIComponent(m.short);
+    if (m.category !== "gaming") return proLinks(m, q, qs);
     const L = [
       ["eBay sold listings", "Completed sales, newest first", `https://www.ebay.com/sch/i.html?_nkw=${q}&_sacat=27386&LH_Sold=1&LH_Complete=1&_sop=13`],
       ["pcprice.watch", "eBay sold medians across 7 markets", `https://www.pcprice.watch/gpu-buying-guide/${m.id}-price-used-and-specs`],
@@ -476,6 +550,31 @@
       ["TechPowerUp specs", "Full specification sheet", `https://www.techpowerup.com/gpu-specs/?q=${qs}`],
     ].filter(Boolean);
     return L.map(([t, s, u]) => `<a href="${u}" target="_blank" rel="noopener"><b>${t} ↗</b><span>${s}</span></a>`).join("");
+  }
+  function proLinks(m, q, qs) {
+    const gp = m.src && m.src.gpupoet;
+    const L = [
+      m.category !== "system" ? ["eBay sold listings", "Completed sales, newest first", `https://www.ebay.com/sch/i.html?_nkw=${q}&LH_Sold=1&LH_Complete=1&_sop=13`] : null,
+      gp ? ["GPU Poet price history", "Daily lowest eBay/Amazon asks", `https://gpupoet.com/gpu/learn/price/${new Date().toLocaleString("en-US", { month: "long" }).toLowerCase()}-${new Date().getFullYear()}/${gp}`] : null,
+      gp ? ["GPU Poet listings", "Live eBay and Amazon offers", `https://gpupoet.com/gpu/shop/${gp}`] : null,
+      m.cloud ? ["GPUPerHour", "Live cloud rental prices", `https://gpuperhour.com/`] : null,
+      m.id === "dgx-spark" ? ["NVIDIA Marketplace", "Official DGX Spark store", "https://marketplace.nvidia.com/en-us/enterprise/personal-ai-supercomputers/dgx-spark/"] : null,
+      m.id === "dgx-spark" ? ["videocardprices: GB10 boxes", "DGX Spark and OEM GB10 systems", "https://videocardprices.com/ai-hardware/"] : null,
+      m.id === "strix-halo" ? ["Framework Desktop", "Official store and configurator", "https://frame.work/desktop"] : null,
+      m.id === "strix-halo" ? ["Strix Halo mini PCs", "GMKtec, Bosgame, Minisforum and more", "https://videocardprices.com/ai-hardware/"] : null,
+      m.id === "rtx-pro-6000" ? ["videocardprices", "Daily Amazon tracker", "https://videocardprices.com/card/nvidia-rtx-pro-6000-blackwell/"] : null,
+      ["r/LocalLLaMA", "Owner reports and deals", `https://www.reddit.com/r/LocalLLaMA/search/?q=${qs}&sort=new`],
+      m.category !== "system" ? ["r/hardwareswap", "Peer-to-peer sales threads", `https://www.reddit.com/r/hardwareswap/search/?q=${qs}&restrict_sr=1&sort=new`] : null,
+      ["Amazon", "Current listings", `https://www.amazon.com/s?k=${q}`],
+      m.category !== "system" ? ["TechPowerUp specs", "Full specification sheet", `https://www.techpowerup.com/gpu-specs/?q=${qs}`] : null,
+    ].filter(Boolean);
+    return L.map(([t, s, u]) => `<a href="${u}" target="_blank" rel="noopener"><b>${t} ↗</b><span>${s}</span></a>`).join("");
+  }
+  function cloudNow(slug) {
+    const c = DATA.cloud && DATA.cloud[slug]; if (!c) return null;
+    const k = Object.keys(c.series); if (!k.length) return null;
+    const [mn, med, prov] = c.series[k[k.length - 1]];
+    return { date: k[k.length - 1], min: mn, med, prov, name: c.name };
   }
   function openDrawer(id) {
     const m = byId[id]; if (!m) return;
@@ -502,7 +601,7 @@
           <span class="d-brand"><i class="dot b-${m.brand}"></i>${m.brand} · ${esc(m.arch)}</span>
           <h2 class="d-title" id="dTitle">${esc(m.name)}</h2>
           <div class="d-ratio">${ratio(m.ratio)}<small>per BTC today</small></div>
-          <div class="specs"><span>${m.vram} GB ${m.mem}</span><span>${m.tdp} W</span><span>MSRP ${usd(m.msrp)}</span><span>Launched ${fmtDate(m.launch)}</span></div>
+          <div class="specs"><span>${m.vram} GB ${esc(m.mem)}</span><span>${m.tdp} W</span><span>${m.msrp_est ? "Est. launch price" : "MSRP"} ${usd(m.msrp)}</span><span>Launched ${fmtDate(m.launch)}</span>${m.category !== "gaming" ? `<span>${CATS[m.category]}</span>` : ""}</div>
           <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
             <button class="btn btn-accent" type="button" id="dShare">Share this GPU</button>
             <button class="btn" type="button" id="dChart">${S.sel.includes(m.id) ? "✓ On main chart" : "＋ Add to main chart"}</button>
@@ -510,26 +609,28 @@
         </div>
       </div>
       <div class="tiles">
-        <div class="tile"><div class="k">Retail avg</div><div class="v">${usd(m.price)}</div><div class="s">low ${usd(m.low)}</div></div>
+        <div class="tile"><div class="k">${PRICE_KIND[m.kind].avg}</div><div class="v">${usd(m.price)}</div><div class="s">${m.kind === "retail" ? "low " + usd(m.low) : m.kind === "list" ? "official" : "eBay + Amazon"}</div></div>
         <div class="tile"><div class="k">Sats each</div><div class="v">${sats(m.sats)}</div><div class="s">${num(m.sats / 1e8, 4)} BTC</div></div>
-        <div class="tile"><div class="k">vs MSRP</div><div class="v ${m.premium > 0 ? "down" : "up"}">${pct(m.premium)}</div><div class="s">${usd(m.msrp)} launch</div></div>
+        <div class="tile"><div class="k">vs MSRP</div><div class="v ${m.premium > 0 ? "down" : "up"}">${pct(m.premium)}</div><div class="s">${usd(m.msrp)} ${m.msrp_est ? "est. " : ""}launch</div></div>
         <div class="tile"><div class="k">30-day</div><div class="v ${cls(m.chg30)}">${pct(m.chg30, 1)}</div><div class="s">7d ${pct(m.chg7, 1)}</div></div>
         <div class="tile"><div class="k">At launch</div><div class="v">${ratio(m.launchRatio)}</div><div class="s">per BTC · BTC ${usd(m.launchBtc)}</div></div>
         <div class="tile"><div class="k">Since launch</div><div class="v ${cls(m.sinceLaunch)}">${pct(m.sinceLaunch)}</div><div class="s">BTC purchasing power</div></div>
         <div class="tile"><div class="k">Best (tracked)</div><div class="v">${m.ath ? ratio(m.ath.v) : "–"}</div><div class="s">${m.ath ? fmtDate(m.ath.d) : ""}</div></div>
         <div class="tile"><div class="k">Worst (tracked)</div><div class="v">${m.atl ? ratio(m.atl.v) : "–"}</div><div class="s">${m.atl ? fmtDate(m.atl.d) : ""}</div></div>
       </div>
+      ${rentHtml(m, btcNow)}
+      <p class="sub" style="margin:4px 0 0">Price source: ${PRICE_KIND[m.kind].note}.${m.msrp_est ? " Launch price is an estimate: data-center parts have no public MSRP." : ""}${m.list_history ? " List-price changes: " + m.list_history.map(([d, p]) => `${fmtDate(d)} ${usd(p)}`).join(" → ") + "." : ""}</p>
       <div class="d-sec"><h3>GPUs per BTC</h3><div class="legend static" style="margin:0;min-height:0">
-        <span><i class="sw" style="background:${C.slots[0]}"></i>Retail avg</span><span><i class="sw" style="background:${C.slots[2]}"></i>Lowest</span><span><i class="sw" style="background:${C.muted}"></i>At MSRP</span></div></div>
+        <span><i class="sw" style="background:${C.slots[0]}"></i>${PRICE_KIND[m.kind].avg}</span>${m.kind === "retail" ? `<span><i class="sw" style="background:${C.slots[2]}"></i>Lowest</span>` : ""}<span><i class="sw" style="background:${C.muted}"></i>At ${m.msrp_est ? "launch price" : "MSRP"}</span></div></div>
       <div class="d-chart" id="dRatio" role="img" aria-label="GPUs per BTC for ${esc(m.short)}"></div>
       <div class="d-sec"><h3>USD price</h3><div class="legend static" style="margin:0;min-height:0">
-        <span><i class="sw" style="background:${C.slots[0]}"></i>Retail avg</span><span><i class="sw" style="background:${C.slots[2]}"></i>Lowest</span><span><i class="sw" style="background:${C.accent};height:8px;width:8px;border-radius:50%"></i>eBay sold median</span><span><i class="sw" style="background:${C.muted}"></i>MSRP</span></div></div>
+        <span><i class="sw" style="background:${C.slots[0]}"></i>${PRICE_KIND[m.kind].avg}</span>${m.kind === "retail" ? `<span><i class="sw" style="background:${C.slots[2]}"></i>Lowest</span><span><i class="sw" style="background:${C.accent};height:8px;width:8px;border-radius:50%"></i>eBay sold median</span>` : ""}<span><i class="sw" style="background:${C.muted}"></i>${m.msrp_est ? "Est. launch" : "MSRP"}</span></div></div>
       <div class="d-chart" id="dPrice" role="img" aria-label="USD price history for ${esc(m.short)}"></div>
-      <div class="d-sec"><h3>Used market (eBay sold)</h3></div>
-      ${usedHtml}
+      ${m.kind === "retail" ? `<div class="d-sec"><h3>Used market (eBay sold)</h3></div>${usedHtml}` : ""}
       ${listings ? `<div class="d-sec"><h3>Current retail listings</h3><span class="muted" style="font-size:12px">sats · USD</span></div><div class="listings">${listings}</div>` : ""}
       <div class="d-sec"><h3>Historic sales & price trackers</h3></div>
-      <div class="links">${links(m)}</div>`;
+      <div class="links">${links(m)}</div>
+      ${m.img_credit ? `<p class="muted" style="font-size:12px;margin-top:14px">${esc(m.img_credit)}</p>` : ""}`;
     $("#scrim").hidden = false;
     const dr = $("#drawer"); dr.classList.add("open"); dr.setAttribute("aria-hidden", "false"); dr.scrollTop = 0;
     document.body.style.overflow = "hidden";
@@ -539,8 +640,14 @@
     requestAnimationFrame(() => drawerCharts(m));
     writeHash();
   }
+  function rentHtml(m, btcNow) {
+    const c = m.cloud && cloudNow(m.cloud); if (!c || !m.price) return "";
+    const hrs = btcNow / c.med, be = m.price / c.med;
+    return `<div class="rent"><div><span class="k">Rent instead</span><b class="mono big">${num(hrs, 0)}</b> GPU-hours per BTC</div>
+      <div class="s">${usd(c.med, 2)}/hr median across ${c.prov} cloud provider${c.prov === 1 ? "" : "s"} (${esc(c.name)}, low ${usd(c.min, 2)}). Buying pays off after <b class="mono">${num(be, 0)}</b> rented hours, about ${num(be / 24 / 30.4, 1)} months of 24/7 use.</div></div>`;
+  }
   function drawerCharts(m) {
-    const start = m.retail.length ? addDays(m.retail[0].d, -30) : m.launch;
+    const start = m.kind === "list" ? addDays(m.launch, -30) : m.retail.length ? addDays(m.retail[0].d, -30) : m.launch;
     const common = (fmt) => ({
       backgroundColor: "transparent", animationDuration: 500,
       grid: { left: 6, right: 14, top: 10, bottom: 54, containLabel: true },
@@ -554,17 +661,17 @@
     r.setOption({ ...common(ratio),
       yAxis: { type: "value", scale: true, ...baseAxis(), axisLine: { show: false } },
       series: [
-        line("At MSRP", metricSeries(m, "gpb", "msrp"), C.muted, { lineStyle: { width: 1.5, color: C.muted, type: [4, 4] }, sampling: "lttb" }),
-        line("Lowest", metricSeries(m, "gpb", "min"), C.slots[2]),
-        line("Retail avg", metricSeries(m, "gpb", "avg"), C.slots[0], { areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: "rgba(57,135,229,.22)" }, { offset: 1, color: "rgba(57,135,229,0)" }]) } }),
+        line(m.msrp_est ? "At launch price" : "At MSRP", metricSeries(m, "gpb", "msrp"), C.muted, { lineStyle: { width: 1.5, color: C.muted, type: [4, 4] }, sampling: "lttb" }),
+        ...(m.kind === "retail" ? [line("Lowest", metricSeries(m, "gpb", "min"), C.slots[2])] : []),
+        line(PRICE_KIND[m.kind].avg, metricSeries(m, "gpb", "avg"), C.slots[0], { areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: "rgba(57,135,229,.22)" }, { offset: 1, color: "rgba(57,135,229,0)" }]) } }),
       ] });
     const p = mk("dPrice");
     p.setOption({ ...common(usd),
       yAxis: { type: "value", scale: true, min: (v) => Math.floor(Math.min(v.min, m.msrp) * 0.9), ...baseAxis(), axisLine: { show: false }, axisLabel: { ...baseAxis().axisLabel, formatter: (v) => "$" + (v >= 1000 ? num(v / 1000, 1) + "k" : v) } },
       series: [
-        line("Lowest", m.retail.map((x) => [x.d, x.min]), C.slots[2]),
-        line("Retail avg", m.retail.map((x) => [x.d, x.avg]), C.slots[0], {
-          markLine: { silent: true, symbol: "none", lineStyle: { color: C.muted, type: [4, 4] }, label: { color: C.muted, formatter: `MSRP ${usd(m.msrp)}`, position: "insideStartTop", fontSize: 11 }, data: [{ yAxis: m.msrp }] } }),
+        ...(m.kind === "retail" ? [line("Lowest", m.retail.map((x) => [x.d, x.min]), C.slots[2])] : []),
+        line(PRICE_KIND[m.kind].avg, m.retail.map((x) => [x.d, x.avg]), C.slots[0], {
+          markLine: { silent: true, symbol: "none", lineStyle: { color: C.muted, type: [4, 4] }, label: { color: C.muted, formatter: `${m.msrp_est ? "Est. launch" : "MSRP"} ${usd(m.msrp)}`, position: "insideStartTop", fontSize: 11 }, data: [{ yAxis: m.msrp }] } }),
         { name: "eBay sold median", type: "scatter", data: m.usedHist, symbolSize: 9, itemStyle: { color: C.accent, borderColor: C.surface, borderWidth: 2 } },
       ] });
   }
@@ -619,6 +726,7 @@
     if (S.range !== "all") p.set("range", S.range);
     if (S.log) p.set("log", "1");
     if (S.brand !== "all") p.set("brand", S.brand);
+    if (S.cat !== "all") p.set("cat", S.cat);
     if (openId) p.set("open", openId);
     const h = p.toString();
     history.replaceState(null, "", h ? "#" + h.replace(/%2C/g, ",") : location.pathname + location.search);
@@ -632,6 +740,7 @@
     if (["1m", "3m", "6m", "ytd", "all"].includes(p.get("range"))) S.range = p.get("range");
     S.log = p.get("log") === "1";
     if (["NVIDIA", "AMD", "Intel"].includes(p.get("brand"))) S.brand = p.get("brand");
+    if (CATS[p.get("cat")]) S.cat = p.get("cat");
     return p.get("open");
   }
 
@@ -654,13 +763,16 @@
     $("#logToggle").checked = S.log;
     $("#logToggle").onchange = (e) => { S.log = e.target.checked; renderMain(); writeHash(); };
     $("#calcAmt").oninput = renderCalc;
+    const refilter = () => { renderWallState(); renderLB(); renderDumbbell(); renderVram(); renderTM(true); renderCalc(); writeHash(); };
     $$("#brandChips .chip").forEach((c) => {
       c.classList.toggle("on", c.dataset.brand === S.brand);
-      c.onclick = () => {
-        S.brand = c.dataset.brand; $$("#brandChips .chip").forEach((x) => x.classList.toggle("on", x === c));
-        renderWallState(); renderLB(); renderDumbbell(); renderVram(); renderTM(); renderCalc(); writeHash();
-      };
+      c.onclick = () => { S.brand = c.dataset.brand; $$("#brandChips .chip").forEach((x) => x.classList.toggle("on", x === c)); refilter(); };
     });
+    $$("#catChips .chip").forEach((c) => {
+      c.classList.toggle("on", c.dataset.cat === S.cat);
+      c.onclick = () => { S.cat = c.dataset.cat; $$("#catChips .chip").forEach((x) => x.classList.toggle("on", x === c)); refilter(); };
+    });
+    bindSeg("#cloudStatSeg", "cloudStat", renderCloud);
     $("#dlChart").onclick = () => {
       const a = document.createElement("a");
       a.href = charts.mainChart.getDataURL({ pixelRatio: 2, backgroundColor: C.surface });
@@ -696,7 +808,7 @@
     $("#updated").textContent = upd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     $("#footUpdated").textContent = "Data updated " + upd.toUTCString().replace(" GMT", " UTC");
     bind();
-    renderHero(); renderWall(); renderLegend(); renderMain(); renderLB(); renderDumbbell(); renderVram(); initTM(); renderCalc();
+    renderHero(); renderWall(); renderLegend(); renderMain(); renderLB(); renderDumbbell(); renderVram(); initTM(); renderCloud(); renderCalc();
     if (open && byId[open]) openDrawer(open);
   }
   boot().catch((e) => { console.error(e); document.querySelector("#heroNote").textContent = "Could not load data: " + e.message; });

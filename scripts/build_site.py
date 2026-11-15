@@ -54,8 +54,11 @@ def stats(cfg, data):
     out = []
     for m in cfg["models"]:
         g = data["gpus"].get(m["id"], {})
-        rdate, r = latest(g.get("retail", {}))
-        price = r[1] if r else None
+        if m.get("list_history"):
+            price = sorted(m["list_history"])[-1][1]
+        else:
+            rdate, r = latest(g.get("retail", {}))
+            price = r[1] if r else None
         launch_btc = latest(btc, m["launch"])[1] or next(iter(btc.values()))
         out.append({
             **m,
@@ -135,7 +138,7 @@ def site_card(cfg, bdate, bprice, rows, dest: Path):
         d.text((x + 18, top + 214), fmt_ratio(r["ratio"]), font=font(52, 700, mono=True), fill=ORANGE, anchor="lm")
         d.text((x + 20, top + 258), f"per BTC · ${r['price']:,.0f}", font=font(19, 500), fill=INK2, anchor="lm")
     d.text((56, H - 26), cfg["site"]["base_url"].replace("https://", ""), font=font(18, 500), fill=MUTED, anchor="ls")
-    d.text((W - 56, H - 26), "13 GPUs · NVIDIA · AMD · Intel", font=font(18, 500), fill=MUTED, anchor="rs")
+    d.text((W - 56, H - 26), f"{len(rows)} GPUs & AI systems · gaming to data center", font=font(18, 500), fill=MUTED, anchor="rs")
     im.convert("RGB").save(dest, optimize=True)
 
 
@@ -145,14 +148,16 @@ def model_card(cfg, bdate, bprice, r, dest: Path):
     mark(d, 56, 48, cfg["site"]["title"])
     paste_gpu(im, r["id"], (560, 110, 1160, 470))
     d.rounded_rectangle((56, 138, 66, 178), 4, fill=BRAND[r["brand"]])
-    d.text((80, 158), r["name"], font=font(42, 800), fill=INK, anchor="lm")
+    nm = r["name"] if len(r["name"]) <= 26 else r["short"]
+    d.text((80, 158), nm, font=font(42, 800), fill=INK, anchor="lm")
     d.text((58, 222), "1 BTC buys", font=font(30, 500), fill=INK2, anchor="lm")
     d.text((52, 312), fmt_ratio(r["ratio"]), font=font(140, 800, mono=True), fill=ORANGE, anchor="lm")
     sats = r["price"] / bprice * 1e8
-    d.text((58, 410), f"{sats/1e6:,.2f}M sats each · ${r['price']:,.0f} avg retail", font=font(26, 500), fill=INK, anchor="lm")
+    kind = "list price" if r.get("list_history") else "lowest asks" if r.get("src", {}).get("gpupoet") else "avg retail"
+    d.text((58, 410), f"{sats/1e6:,.2f}M sats each · ${r['price']:,.0f} {kind}", font=font(26, 500), fill=INK, anchor="lm")
     chg = r["ratio"] / r["launch_ratio"] - 1
     col = (12, 163, 12) if chg >= 0 else (230, 103, 103)
-    d.text((58, 456), f"At launch ({r['launch']}, ${r['msrp']:,} MSRP): {fmt_ratio(r['launch_ratio'])} per BTC",
+    d.text((58, 456), f"At launch ({r['launch']}, ${r['msrp']:,} {'est. price' if r.get('msrp_est') else 'MSRP'}): {fmt_ratio(r['launch_ratio'])} per BTC",
            font=font(22, 400), fill=INK2, anchor="lm")
     d.text((58, 494), f"{'▲' if chg >= 0 else '▼'} {abs(chg)*100:,.0f}% purchasing power since launch",
            font=font(24, 700), fill=col, anchor="lm")
@@ -188,8 +193,9 @@ def meta_block(title, desc, url, image) -> str:
 def model_page(cfg, r, bprice, stamp) -> str:
     base = cfg["site"]["base_url"].rstrip("/")
     url = f"{base}/m/{r['id']}/"
-    title = f"1 BTC = {fmt_ratio(r['ratio'])} {r['short']}s · Sats per Silicon"
-    desc = (f"{r['name']}: ${r['price']:,.0f} avg US retail, {r['price']/bprice*1e8/1e6:,.2f}M sats. "
+    plural = r["short"] if r["short"].endswith("s") else r["short"] + "s"
+    title = f"1 BTC = {fmt_ratio(r['ratio'])} {plural} · Sats per Silicon"
+    desc = (f"{r['name']}: ${r['price']:,.0f}, {r['price']/bprice*1e8/1e6:,.2f}M sats. "
             f"At launch 1 BTC bought {fmt_ratio(r['launch_ratio'])}. Charts, stats and sold-price history.")
     return f"""<!doctype html>
 <html lang="en">
@@ -229,8 +235,8 @@ def main():
         base = cfg["site"]["base_url"].rstrip("/")
         top = next(r for r in rows if r["id"] == "rtx-5090")
         title = f"{cfg['site']['title']}: How many GPUs does 1 BTC buy?"
-        desc = (f"Today 1 BTC buys {fmt_ratio(top['ratio'])} RTX 5090s. Interactive BTC/GPU ratio charts for "
-                "RTX 50, Radeon RX 9000 and Intel Arc: price history, eBay sold data, stats.")
+        desc = (f"Today 1 BTC buys {fmt_ratio(top['ratio'])} RTX 5090s. Interactive BTC/GPU ratio charts for RTX 50, "
+                "Radeon RX 9000, Intel Arc, RTX PRO, H100/H200, Instinct MI300X, DGX Spark and Strix Halo, plus cloud GPU-hours per BTC.")
         block = meta_block(title, desc, base + "/", f"{base}/assets/img/og/og.png?v={stamp}")
         s = idx.read_text()
         s = re.sub(r"<!-- og:start -->.*?<!-- og:end -->", lambda _: block, s, flags=re.S)
