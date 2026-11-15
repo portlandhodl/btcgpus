@@ -1,0 +1,36 @@
+# Sats per Silicon
+
+> How many GPUs does one bitcoin buy? Live bitcoin vs GPU prices: how many of each GPU one BTC buys, sats per GPU, history since launch, used eBay prices and cloud GPU-hours per BTC.
+
+Updated 2026-11-15T06:42:13Z. BTC/USD $64,399.
+
+## GPUs per BTC today
+
+- [Arc B570](https://gpupairs.com/m/arc-b570/): 177.7 per BTC ($362, 562.6k sats)
+- [Arc B580](https://gpupairs.com/m/arc-b580/): 120.8 per BTC ($533, 827.7k sats)
+- [Radeon RX 9060 XT](https://gpupairs.com/m/rx-9060-xt/): 97.4 per BTC ($661, 1.03M sats)
+- [GeForce RTX 5060 Ti](https://gpupairs.com/m/rtx-5060-ti/): 88.5 per BTC ($728, 1.13M sats)
+- [Arc A770](https://gpupairs.com/m/arc-a770/): 85.4 per BTC ($754, 1.17M sats)
+- [Radeon RX 9070](https://gpupairs.com/m/rx-9070/): 79.4 per BTC ($811, 1.26M sats)
+- [GeForce RTX 5070](https://gpupairs.com/m/rtx-5070/): 69.1 per BTC ($932, 1.45M sats)
+- [Radeon RX 9070 XT](https://gpupairs.com/m/rx-9070-xt/): 62.9 per BTC ($1,024, 1.59M sats)
+- [GeForce RTX 5070 Ti](https://gpupairs.com/m/rtx-5070-ti/): 44.4 per BTC ($1,450, 2.25M sats)
+- [Radeon RX 7900 XTX](https://gpupairs.com/m/rx-7900-xtx/): 43.3 per BTC ($1,486, 2.31M sats)
+- [GeForce RTX 5080](https://gpupairs.com/m/rtx-5080/): 30.4 per BTC ($2,120, 3.29M sats)
+- [Radeon AI PRO R9700](https://gpupairs.com/m/radeon-ai-pro-r9700/): 27.0 per BTC ($2,389, 3.71M sats)
+- [Strix Halo (Framework Desktop, Ryzen AI Max+ 395, 128GB)](https://gpupairs.com/m/strix-halo/): 18.7 per BTC ($3,449, 5.36M sats)
+- [Radeon PRO W7900](https://gpupairs.com/m/radeon-pro-w7900/): 16.9 per BTC ($3,804, 5.91M sats)
+- [GeForce RTX 4090](https://gpupairs.com/m/rtx-4090/): 13.7 per BTC ($4,692, 7.29M sats)
+- [GeForce RTX 5090](https://gpupairs.com/m/rtx-5090/): 11.0 per BTC ($5,872, 9.12M sats)
+- [DGX Spark (GB10, 128GB)](https://gpupairs.com/m/dgx-spark/): 9.27 per BTC ($6,950, 10.79M sats)
+- [L40S 48GB](https://gpupairs.com/m/l40s/): 9.01 per BTC ($7,148, 11.10M sats)
+- [A100 PCIe 80GB](https://gpupairs.com/m/a100-pcie/): 5.13 per BTC ($12,550, 19.49M sats)
+- [RTX PRO 6000 Blackwell](https://gpupairs.com/m/rtx-pro-6000/): 3.98 per BTC ($16,191, 25.14M sats)
+- [Instinct MI300X](https://gpupairs.com/m/instinct-mi300x/): 2.04 per BTC ($31,516, 48.94M sats)
+- [H100 PCIe 80GB](https://gpupairs.com/m/h100-pcie/): 1.63 per BTC ($39,577, 61.46M sats)
+- [H200 NVL 141GB](https://gpupairs.com/m/h200-nvl/): 1.18 per BTC ($54,366, 84.42M sats)
+
+## Data
+
+- [data.json](https://gpupairs.com/data/data.json): full daily archive (BTC closes, GPU retail/used/ask prices, cloud $/GPU-hour)
+- [models.json](https://gpupairs.com/data/models.json): GPU metadata (MSRP, launch date, VRAM)

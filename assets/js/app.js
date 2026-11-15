@@ -29,6 +29,13 @@
   const VCP = new Set(["rtx-5090", "rtx-5080", "rtx-5070-ti", "rtx-5070", "rtx-5060-ti", "rx-9070-xt", "rx-9070", "rx-9060-xt", "arc-b580", "arc-b570"]);
 
   // ------------------------------------------------------------------ utils
+  let IMG = {}; // id -> [w, h] of the 480px variant (inlined by build_pages.py)
+  const imgTag = (id, alt, size, extra = "") => {
+    const d = IMG[id], w = size === 160 ? 160 : 480;
+    const wh = d ? ` width="${w}" height="${Math.round((d[1] / d[0]) * w)}"` : "";
+    const ss = w === 480 ? ` srcset="assets/img/gpus/${id}-320.webp 320w, assets/img/gpus/${id}-480.webp 480w" sizes="(max-width: 600px) 44vw, 230px"` : "";
+    return `<img src="assets/img/gpus/${id}-${w}.webp"${ss}${wh} alt="${esc(alt)}" decoding="async" ${extra}>`;
+  };
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -56,6 +63,34 @@
   };
   let M = [], byId = {}, BTC = { d: [], p: [] }, DATA, CFG;
   const charts = {};
+
+  // ECharts is ~200 KB gzipped and only needed below the fold, so it is loaded
+  // when a chart nears the viewport (or the drawer opens). Chart renders queue
+  // until then; everything else renders straight away from data.
+  const EC_SRC = (document.querySelector('meta[name="echarts-src"]') || {}).content || "assets/vendor/echarts.custom.min.js";
+  const ecQueue = new Map();
+  let ecPromise = null;
+  function loadCharts() {
+    if (window.echarts) return Promise.resolve();
+    if (!ecPromise) ecPromise = new Promise((res, rej) => {
+      const s = document.createElement("script"); s.src = EC_SRC; s.async = true;
+      s.onload = () => { res(); ecQueue.forEach((fn) => fn()); ecQueue.clear(); };
+      s.onerror = () => rej(new Error("chart library failed to load"));
+      document.head.appendChild(s);
+    });
+    return ecPromise;
+  }
+  /** run fn now if ECharts is ready, else once it loads (latest call per key wins) */
+  function whenCharts(key, fn) {
+    if (window.echarts) return fn();
+    ecQueue.set(key, fn);
+  }
+  function watchCharts() {
+    const els = $$(".chart");
+    if (!("IntersectionObserver" in window)) return loadCharts();
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); loadCharts(); } }, { rootMargin: "900px 0px" });
+    els.forEach((el) => io.observe(el));
+  }
 
   // ------------------------------------------------------------------ data
   function btcAt(iso) {
@@ -182,9 +217,11 @@
       .map((id) => byId[id]).filter((m) => m && m.ratio);
     const show = (m) => {
       const img = $("#heroImg"), num = $("#heroNum"), mod = $("#heroModel");
+      if (img.dataset.id === m.id && num.textContent === ratio(m.ratio)) return; // prerendered frame already shows this
       img.classList.add("swap"); num.classList.add("fade");
       setTimeout(() => {
-        img.src = `assets/img/gpus/${m.id}.webp`; img.alt = m.name;
+        img.srcset = `assets/img/gpus/${m.id}-480.webp 480w, assets/img/gpus/${m.id}-640.webp 640w, assets/img/gpus/${m.id}.webp 900w`;
+        img.src = `assets/img/gpus/${m.id}.webp`; img.alt = m.name; img.dataset.id = m.id;
         num.textContent = ratio(m.ratio);
         mod.textContent = m.short + (m.ratio >= 2 ? "s" : "");
         $("#heroSub").textContent = `${usd(m.price)} ${m.kind === "list" ? "list price" : m.kind === "ask" ? "lowest asks" : "avg retail"} · ${sats(m.sats)} sats each`;
@@ -197,7 +234,13 @@
     };
     const tick = () => { show(order[heroI % order.length]); heroI++; };
     clearInterval(heroTimer); tick();
-    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) heroTimer = setInterval(tick, 4200);
+    // Start rotating only after the visitor scrolls or 9s pass: swapping the hero photo
+    // during load would keep re-triggering Largest Contentful Paint.
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      let started = false;
+      const start = () => { if (started) return; started = true; removeEventListener("scroll", start); heroTimer = setInterval(tick, 4200); };
+      addEventListener("scroll", start, { once: true, passive: true }); setTimeout(start, 9000);
+    }
     $("#heroStat").onclick = () => openDrawer(order[(heroI - 1 + order.length) % order.length].id);
     $("#heroStat").style.cursor = "pointer";
   }
@@ -213,24 +256,40 @@
     return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
       <path d="${d}L${w} ${h}L0 ${h}Z" fill="${col}" opacity=".10"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
   }
+  // Pre-rendered markup (build_pages.py) matches what these renders produce. On first load keep it,
+  // so hydration doesn't relayout the page, and just wire up events and start the deferred photos.
+  const prerendered = (sel, ids) => { const els = $$(sel); return els.length === ids.length && els.every((el, i) => el.dataset.id === ids[i]); };
+  function wakeImgs(root) {
+    $$("img[data-src]", root).forEach((im) => {
+      const src = im.dataset.src, base = src.replace(/-\d+\.webp$/, "");
+      if (/-480\.webp$/.test(src)) { im.srcset = `${base}-320.webp 320w, ${base}-480.webp 480w`; im.sizes = "(max-width: 600px) 44vw, 230px"; }
+      im.loading = "lazy"; im.src = src; delete im.dataset.src;
+    });
+  }
+  let wallDone = false;
   function renderWall() {
+    if (!wallDone && prerendered("#wall .card", M.map((m) => m.id))) { wallDone = true; wakeImgs($("#wall")); bindWall(); renderWallState(); return; }
+    wallDone = true;
     $("#wall").innerHTML = M.map((m) => `
-      <div class="card" data-id="${m.id}" data-brand="${m.brand}" role="button" tabindex="0" aria-label="${esc(m.name)} details">
+      <div class="card" data-id="${m.id}" data-brand="${m.brand}">
         <button class="add" type="button" aria-pressed="false" aria-label="Add ${esc(m.short)} to chart" title="Add to chart">＋</button>
-        <div class="img"><img src="assets/img/gpus/${m.id}.webp" alt="${esc(m.name)}" loading="lazy"></div>
+        <div class="img">${imgTag(m.id, m.name, 480, 'loading="lazy"')}</div>
         ${m.category !== "gaming" ? `<span class="tag">${CATS[m.category]}</span>` : ""}
-        <div class="name"><i class="b-${m.brand}"></i>${esc(m.short)}</div>
+        <div class="name"><i class="b-${m.brand}"></i><a href="m/${m.id}/">${esc(m.short)}</a></div>
         <div class="big">${ratio(m.ratio)}<small>per BTC</small></div>
         <div class="meta"><span>${usd(m.price)} · ${sats(m.sats)} sats</span><span class="${cls(m.chg30)}">${pct(m.chg30, 1)} 30d</span></div>
         ${spark(m)}
       </div>`).join("");
+    bindWall();
+    renderWallState();
+  }
+  function bindWall() {
     $$("#wall .card").forEach((el) => {
       const id = el.dataset.id;
-      el.addEventListener("click", (e) => { if (e.target.closest(".add")) return; openDrawer(id); });
-      el.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target === el) { e.preventDefault(); openDrawer(id); } });
+      // the card's link goes to /m/<id>/ (crawlable, opens in a new tab with a modifier); a plain click opens the drawer
+      el.addEventListener("click", (e) => { if (e.target.closest(".add") || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); openDrawer(id); });
       $(".add", el).addEventListener("click", (e) => { e.stopPropagation(); toggleSel(id); });
     });
-    renderWallState();
   }
   function renderWallState() {
     $$("#wall .card").forEach((el) => {
@@ -267,6 +326,11 @@
   }
 
   function renderMain() {
+    $("#chartSub").textContent = `${metricName[S.metric]} · priced at ${basisName[S.basis]}` +
+      (S.basis === "msrp" ? " (bitcoin's move alone)" : " · retail tracking from Jan 2026");
+    whenCharts("main", renderMainChart);
+  }
+  function renderMainChart() {
     const ch = charts.mainChart || mk("mainChart");
     const last = BTC.d[BTC.d.length - 1];
     let start = rangeStart(last);
@@ -286,8 +350,6 @@
       };
     });
     if (S.metric === "idx") series.push({ type: "line", data: [], markLine: { silent: true, symbol: "none", lineStyle: { color: C.axis, type: "dashed" }, label: { show: false }, data: [{ yAxis: 100 }] } });
-    $("#chartSub").textContent = `${metricName[S.metric]} · priced at ${basisName[S.basis]}` +
-      (S.basis === "msrp" ? " (bitcoin's move alone)" : " · retail tracking from Jan 2026");
     const ya = baseAxis();
     ch.setOption({
       backgroundColor: "transparent", animationDuration: 600, color: S.sel.map(colorOf),
@@ -332,7 +394,7 @@
 
   // ------------------------------------------------------------------ leaderboard
   const LB_COLS = [
-    { key: "name", label: "GPU", val: (m) => m.short, fmt: (m) => `<span class="m"><img src="assets/img/gpus/${m.id}.webp" alt="" loading="lazy"><i class="b-${m.brand}"></i>${esc(m.short)}${m.category !== "gaming" ? `<span class="tag">${CATS[m.category]}</span>` : ""}</span>` },
+    { key: "name", label: "GPU", val: (m) => m.short, fmt: (m) => `<span class="m">${imgTag(m.id, "", 160, 'loading="lazy"')}<i class="b-${m.brand}"></i><a href="m/${m.id}/">${esc(m.short)}</a>${m.category !== "gaming" ? `<span class="tag">${CATS[m.category]}</span>` : ""}</span>` },
     { key: "vram", label: "VRAM", val: (m) => m.vram, fmt: (m) => m.vram + " GB" },
     { key: "msrp", label: "MSRP", val: (m) => m.msrp, fmt: (m) => usd(m.msrp) + estMark(m) },
     { key: "price", label: "Price now", val: (m) => m.price, fmt: (m) => `<span title="${PRICE_KIND[m.kind].note}">${usd(m.price)}${m.kind !== "retail" ? `<sup class="k-${m.kind}">${m.kind === "list" ? "L" : "A"}</sup>` : ""}</span>` },
@@ -345,6 +407,7 @@
     { key: "chg30", label: "30d", val: (m) => m.chg30, fmt: (m) => `<span class="${cls(m.chg30)}">${pct(m.chg30, 1)}</span>` },
     { key: "sinceLaunch", label: "Since launch", val: (m) => m.sinceLaunch, fmt: (m) => `<span class="${cls(m.sinceLaunch)}">${pct(m.sinceLaunch)}</span>` },
   ];
+  let lbDone = false;
   function renderLB() {
     const { key, dir } = S.sort, col = LB_COLS.find((c) => c.key === key);
     const rows = M.filter((m) => vis(m)).slice().sort((a, b) => {
@@ -352,23 +415,32 @@
       if (x == null) return 1; if (y == null) return -1;
       return (typeof x === "string" ? x.localeCompare(y) : x - y) * dir;
     });
+    if (!lbDone && prerendered("#lbTable tbody tr", rows.map((m) => m.id))) { lbDone = true; wakeImgs($("#lbTable")); bindLB(); return; }
+    lbDone = true;
     const maxR = Math.max(...M.map((m) => m.ratio || 0));
     $("#lbTable").innerHTML = `<thead><tr>${LB_COLS.map((c) => `<th data-k="${c.key}" ${c.key === key ? `aria-sort="${dir > 0 ? "ascending" : "descending"}"` : ""} tabindex="0">${c.label}</th>`).join("")}</tr></thead>
       <tbody>${rows.map((m) => `<tr data-id="${m.id}" tabindex="0">${LB_COLS.map((c) => c.bar
         ? `<td class="bar-cell">${c.fmt(m)}<span class="bar" style="width:${Math.max(4, ((m.ratio || 0) / maxR) * 90)}px"></span></td>`
         : `<td>${c.fmt(m)}</td>`).join("")}</tr>`).join("")}</tbody>`;
+    bindLB();
+  }
+  function bindLB() {
     $$("#lbTable th").forEach((th) => {
       const go = () => { const k = th.dataset.k; S.sort = { key: k, dir: S.sort.key === k ? -S.sort.dir : k === "name" ? 1 : -1 }; renderLB(); };
       th.onclick = go; th.onkeydown = (e) => e.key === "Enter" && go();
     });
-    $$("#lbTable tbody tr").forEach((tr) => { tr.onclick = () => openDrawer(tr.dataset.id); tr.onkeydown = (e) => e.key === "Enter" && openDrawer(tr.dataset.id); });
+    $$("#lbTable tbody tr").forEach((tr) => {
+      tr.onclick = (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); openDrawer(tr.dataset.id); };
+      tr.onkeydown = (e) => e.key === "Enter" && e.target === tr && openDrawer(tr.dataset.id);
+    });
   }
 
   // ------------------------------------------------------------------ dumbbell + vram
   function fitHeight(id, n, per = 30, min = 260) {
     document.getElementById(id).style.height = Math.max(min, n * per + 60) + "px";
   }
-  function renderDumbbell() {
+  function renderDumbbell() { whenCharts("dumbbell", renderDumbbellChart); }
+  function renderDumbbellChart() {
     const list = M.filter((m) => m.ratio && (vis(m))).sort((a, b) => a.ratio - b.ratio);
     fitHeight("dumbbell", list.length);
     const ch = mk("dumbbell");
@@ -396,7 +468,8 @@
     });
     ch.off("click"); ch.on("click", (p) => openDrawer(list[p.value[2]].id));
   }
-  function renderVram() {
+  function renderVram() { whenCharts("vram", renderVramChart); }
+  function renderVramChart() {
     const list = M.filter((m) => m.satsPerGB && (vis(m))).sort((a, b) => b.satsPerGB - a.satsPerGB);
     fitHeight("vramChart", list.length);
     const ch = mk("vramChart");
@@ -443,9 +516,10 @@
     const d = TM.dates[TM.i];
     $("#tmDate").textContent = fmtDate(d);
     $("#tmBtc").textContent = "BTC " + usd(btcAt(d));
+    if (!window.echarts) { whenCharts("tm", () => renderTM(true)); return; }
     const list = M.filter((m) => vis(m));
     const vals = list.map((m) => tmValue(m, d));
-    if (first) { fitHeight("tmChart", list.length, 28, 300); mk("tmChart"); }
+    if (first || !charts.tmChart) { first = true; fitHeight("tmChart", list.length, 28, 300); mk("tmChart"); }
     const ch = charts.tmChart;
     ch.setOption({
       backgroundColor: "transparent",
@@ -485,6 +559,10 @@
     $$("#cloudChips button").forEach((b) => b.onclick = () => {
       const sl = b.dataset.slug; S.cloudSel.has(sl) ? S.cloudSel.delete(sl) : S.cloudSel.add(sl); renderCloud();
     });
+    renderCloudTable(avail);
+    whenCharts("cloud", () => renderCloudChart(avail, btcSeries));
+  }
+  function renderCloudChart(avail, btcSeries) {
     const ch = charts.cloudChart || mk("cloudChart");
     const series = avail.filter(([slug]) => S.cloudSel.has(slug)).map(([slug, name]) => {
       const col = C.slots[CLOUD.findIndex((c) => c[0] === slug)];
@@ -503,6 +581,10 @@
       yAxis: { type: "log", ...baseAxis(), axisLine: { show: false }, axisLabel: { ...baseAxis().axisLabel, formatter: (v) => (v >= 1000 ? num(v / 1000, 0) + "k" : num(v, 0)) + " h" } },
       series,
     }, { replaceMerge: ["series"] });
+  }
+  let cloudDone = false;
+  function renderCloudTable(avail) {
+    if (!cloudDone) { cloudDone = true; if (S.cloudStat === "median" && $$("#cloudTable tbody tr").length === avail.length) return; }
     const btcNow = BTC.p[BTC.p.length - 1];
     $("#cloudTable").innerHTML = `<thead><tr><th>Cloud GPU</th><th>Median $/hr</th><th>Cheapest $/hr</th><th>Providers</th><th>GPU-hours / BTC</th><th>Days of 24/7 / BTC</th><th>30d</th></tr></thead><tbody>${
       avail.map(([slug, name]) => {
@@ -515,7 +597,9 @@
   }
 
   // ------------------------------------------------------------------ calculator
+  let calcSeen = false;
   function renderCalc() {
+    if (!calcSeen) return;
     const amt = parseFloat($("#calcAmt").value) || 0;
     const btcNow = BTC.p[BTC.p.length - 1];
     const btc = S.unit === "btc" ? amt : S.unit === "sats" ? amt / 1e8 : amt / btcNow;
@@ -596,7 +680,7 @@
         <img src="${esc(l.img)}" alt="" loading="lazy" referrerpolicy="no-referrer"><span class="nm" title="${esc(l.name)}">${esc(l.name)}</span><span class="sats">${sats((l.price / btcNow) * 1e8)}</span><span class="pr">${usd(l.price)}</span></a>`).join("");
     $("#drawerBody").innerHTML = `
       <div class="d-hero">
-        <img src="assets/img/gpus/${m.id}.webp" alt="${esc(m.name)}">
+        <img src="assets/img/gpus/${m.id}.webp" alt="${esc(m.name)}" decoding="async">
         <div>
           <span class="d-brand"><i class="dot b-${m.brand}"></i>${m.brand} · ${esc(m.arch)}</span>
           <h2 class="d-title" id="dTitle">${esc(m.name)}</h2>
@@ -605,6 +689,7 @@
           <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
             <button class="btn btn-accent" type="button" id="dShare">Share this GPU</button>
             <button class="btn" type="button" id="dChart">${S.sel.includes(m.id) ? "✓ On main chart" : "＋ Add to main chart"}</button>
+            <a class="btn" id="dPage" href="#">Full ${esc(m.short)} page</a>
           </div>
         </div>
       </div>
@@ -632,12 +717,13 @@
       <div class="links">${links(m)}</div>
       ${m.img_credit ? `<p class="muted" style="font-size:12px;margin-top:14px">${esc(m.img_credit)}</p>` : ""}`;
     $("#scrim").hidden = false;
-    const dr = $("#drawer"); dr.classList.add("open"); dr.setAttribute("aria-hidden", "false"); dr.scrollTop = 0;
+    const dr = $("#drawer"); dr.classList.add("open"); dr.setAttribute("aria-hidden", "false"); dr.inert = false; dr.scrollTop = 0;
     document.body.style.overflow = "hidden";
     setTimeout(() => dr.focus(), 50);
     $("#dShare").onclick = () => openShare(m.id);
+    $("#dPage").href = `m/${m.id}/`;
     $("#dChart").onclick = (e) => { toggleSel(m.id); e.target.textContent = S.sel.includes(m.id) ? "✓ On main chart" : "＋ Add to main chart"; };
-    requestAnimationFrame(() => drawerCharts(m));
+    loadCharts(); whenCharts("drawer", () => requestAnimationFrame(() => drawerCharts(m)));
     writeHash();
   }
   function rentHtml(m, btcNow) {
@@ -676,7 +762,7 @@
       ] });
   }
   function closeDrawer() {
-    const dr = $("#drawer"); dr.classList.remove("open"); dr.setAttribute("aria-hidden", "true");
+    const dr = $("#drawer"); dr.classList.remove("open"); dr.setAttribute("aria-hidden", "true"); dr.inert = true;
     $("#scrim").hidden = true; document.body.style.overflow = ""; openId = null;
     ["dRatio", "dPrice"].forEach((k) => { if (charts[k]) { charts[k].dispose(); delete charts[k]; } });
     writeHash(); if (lastFocus) lastFocus.focus();
@@ -795,11 +881,15 @@
 
   // ------------------------------------------------------------------ boot
   async function boot() {
+    const inl = document.getElementById("cfg");
     const [cfg, data] = await Promise.all([
-      fetch("data/models.json").then((r) => r.json()),
+      inl ? JSON.parse(inl.textContent) : fetch("data/models.json").then((r) => r.json()),
       fetch("data/data.json", { cache: "no-cache" }).then((r) => r.json()),
     ]);
+    IMG = cfg.img || {};
+    await new Promise((r) => setTimeout(r, 0));
     prep(cfg, data);
+    await new Promise((r) => setTimeout(r, 0));
     const open = readHash();
     const btcNow = BTC.p[BTC.p.length - 1], btcPrev = btcAt(addDays(BTC.d[BTC.d.length - 1], -1));
     $("#btcPrice").textContent = usd(btcNow);
@@ -808,8 +898,19 @@
     $("#updated").textContent = upd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     $("#footUpdated").textContent = "Data updated " + upd.toUTCString().replace(" GMT", " UTC");
     bind();
-    renderHero(); renderWall(); renderLegend(); renderMain(); renderLB(); renderDumbbell(); renderVram(); initTM(); renderCloud(); renderCalc();
+    // one task per section, yielding in between, so hydration never blocks input for long
+    const pause = () => (window.scheduler && scheduler.yield ? scheduler.yield() : new Promise((r) => setTimeout(r, 0)));
+    for (const step of [renderHero, renderWall, renderLegend, renderMain, renderLB, renderDumbbell, renderVram, initTM, renderCloud]) { step(); await pause(); }
+    const calc = $("#calc");
+    if ("IntersectionObserver" in window) {
+      const io = new IntersectionObserver((es) => { if (es[0].isIntersecting) { io.disconnect(); calcSeen = true; renderCalc(); } }, { rootMargin: "600px 0px" });
+      io.observe(calc);
+    } else { calcSeen = true; renderCalc(); }
+    if (location.hash.length > 1) loadCharts(); else watchCharts();
     if (open && byId[open]) openDrawer(open);
   }
-  boot().catch((e) => { console.error(e); document.querySelector("#heroNote").textContent = "Could not load data: " + e.message; });
+  // The page is pre-rendered, so hydrate after first paint instead of competing with it.
+  const start = () => requestAnimationFrame(() => setTimeout(() => boot().catch(fail), 0));
+  const fail = (e) => { console.error(e); document.querySelector("#heroNote").textContent = "Could not load data: " + e.message; };
+  if (document.readyState === "complete") start(); else addEventListener("load", start, { once: true });
 })();

@@ -2,7 +2,10 @@
   "site": {
     "title": "Sats per Silicon",
     "tagline": "How many GPUs does one bitcoin buy?",
-    "base_url": "https://portlandhodl.github.io/btcgpus"
+    "base_url": "https://gpupairs.com",
+    "twitter": "@PortlandHODL",
+    "author": "Portland.HODL",
+    "author_url": "https://github.com/portlandhodl"
   },
   "models": [
     {
