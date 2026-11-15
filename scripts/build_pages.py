@@ -228,6 +228,8 @@ def meta_block(site, title, desc, url, image, image_alt) -> str:
 <meta property="og:description" content="{d}">
 <meta property="og:url" content="{url}">
 <meta property="og:image" content="{image}">
+<meta property="og:image:secure_url" content="{image}">
+<meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="{esc(image_alt)}">
@@ -429,7 +431,7 @@ def build_home(cfg, data, btc, rows, dims, stamp):
     ld = {"@context": "https://schema.org", "@graph": [
         {"@type": "WebSite", "@id": base + "/#website", "url": base + "/", "name": site["title"], "description": site["tagline"], "inLanguage": "en"},
         {"@type": "WebPage", "@id": base + "/#page", "url": base + "/", "name": title, "description": desc, "isPartOf": {"@id": base + "/#website"},
-         "dateModified": data["updated"], "primaryImageOfPage": f"{base}/assets/img/og/og.png"},
+         "dateModified": data["updated"], "primaryImageOfPage": f"{base}/assets/img/og/og.jpg"},
         {"@type": "Dataset", "name": "Sats per Silicon: GPU prices in bitcoin",
          "description": "Daily BTC/USD closes with US retail, used (eBay sold) and asking prices for consumer, workstation and data-center GPUs, "
                         "plus daily cloud GPU rental prices, used to compute how many GPUs one bitcoin buys.",
@@ -447,7 +449,7 @@ def build_home(cfg, data, btc, rows, dims, stamp):
     ec_v = file_hash(ROOT / "assets" / "vendor" / "echarts.custom.min.js")
     cfg_inline = dict(cfg, img=dims)
     head = f"""<!-- head:start -->
-{meta_block(site, title, desc, base + "/", f"{base}/assets/img/og/og.png?v={stamp}", "How many GPUs 1 bitcoin buys today: RTX 5090, RTX 5080, RX 9070 XT and Arc B580")}
+{meta_block(site, title, desc, base + "/", f"{base}/assets/img/og/og.jpg?v={stamp}", "How many GPUs 1 bitcoin buys today: RTX 5090, RTX 5080, RX 9070 XT and Arc B580")}
 {common_head("")}
 <link rel="preload" as="image" href="assets/img/gpus/{HERO_ID}.webp" imagesrcset="assets/img/gpus/{HERO_ID}-480.webp 480w, assets/img/gpus/{HERO_ID}-640.webp 640w, assets/img/gpus/{HERO_ID}.webp 900w" imagesizes="{HERO_SIZES}" fetchpriority="high">
 <style>{inline_css("")}</style>
@@ -664,7 +666,7 @@ def model_page(cfg, data, btc, o, rows, dims, stamp, upd) -> str:
         u = o["used"]
         used = (f'<p>Used cards sell for a median {usd(u["median"])} on eBay ({u["sales"]} completed sales in 90 days, typical {usd(u["low"])}–{usd(u["high"])}). '
                 f'Paid in bitcoin that is {sats(u["median"] / btc.now * 1e8)} sats, so 1 BTC buys {ratio(btc.now / u["median"])} used.</p>')
-    image = f"{base}/assets/img/og/{o['id']}.png?v={stamp}"
+    image = f"{base}/assets/img/og/{o['id']}.jpg?v={stamp}"
     graph = [
         {"@type": "WebPage", "@id": url + "#page", "url": url, "name": title, "description": desc, "dateModified": data["updated"],
          "isPartOf": {"@type": "WebSite", "@id": base + "/#website", "url": base + "/", "name": site["title"]}, "primaryImageOfPage": image},
@@ -788,7 +790,7 @@ def main():
     data = json.loads((ROOT / "data" / "data.json").read_text())
     btc, rows = prep(cfg, data)
     dims = make_variants(cfg["models"])
-    stamp = data["updated"][:10].replace("-", "")
+    stamp = re.sub(r"\D", "", data["updated"])[:10]  # YYYYMMDDHH: cards are redrawn every refresh
     upd = fmt_date(data["updated"][:10])
     build_home(cfg, data, btc, rows, dims, stamp)
     n = 0

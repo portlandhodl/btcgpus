@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Generate the social unfurl cards and per-model share pages.
 
-  assets/img/og/og.png ........ 1200x630 site card (top 4 models)
-  assets/img/og/<id>.png ...... 1200x630 card per GPU
+  assets/img/og/og.jpg ........ 1200x630 site card (top 4 models)
+  assets/img/og/<id>.jpg ...... 1200x630 card per GPU
+
+  Cards are progressive JPEGs (~100 KB): WhatsApp and Signal skip preview images over ~300 KB.
   then runs build_pages.py: pre-rendered index.html, a landing page per GPU at
   m/<id>/, resized photos, sitemap.xml, robots.txt, llms.txt and 404.html
 
@@ -12,11 +14,13 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-import build_pages
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import build_pages  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 FONT = ROOT / "assets" / "fonts" / "Inter.ttf"
@@ -114,6 +118,10 @@ def fmt_ratio(r: float) -> str:
     return f"{r:,.1f}" if r >= 10 else f"{r:,.2f}"
 
 
+def save_card(im: Image.Image, dest: Path):
+    im.convert("RGB").save(dest, "JPEG", quality=86, optimize=True, progressive=True, subsampling="4:2:0")
+
+
 def site_card(cfg, bdate, bprice, rows, dest: Path):
     im = backdrop().convert("RGBA")
     d = ImageDraw.Draw(im)
@@ -138,7 +146,7 @@ def site_card(cfg, bdate, bprice, rows, dest: Path):
         d.text((x + 20, top + 258), f"per BTC · ${r['price']:,.0f}", font=font(19, 500), fill=INK2, anchor="lm")
     d.text((56, H - 26), cfg["site"]["base_url"].split("://")[-1], font=font(18, 500), fill=MUTED, anchor="ls")
     d.text((W - 56, H - 26), f"{len(rows)} GPUs & AI systems · gaming to data center", font=font(18, 500), fill=MUTED, anchor="rs")
-    im.convert("RGB").save(dest, optimize=True)
+    save_card(im, dest)
 
 
 def model_card(cfg, bdate, bprice, r, dest: Path):
@@ -165,7 +173,7 @@ def model_card(cfg, bdate, bprice, r, dest: Path):
     d.text((56, H - 26), cfg["site"]["base_url"].split("://")[-1] + f"/m/{r['id']}/",
            font=font(18, 500), fill=MUTED, anchor="ls")
     d.text((W - 56, H - 26), f"{r['vram']}GB {r['mem']} · {r['arch']}", font=font(18, 500), fill=MUTED, anchor="rs")
-    im.convert("RGB").save(dest, optimize=True)
+    save_card(im, dest)
 
 
 def main():
@@ -173,11 +181,11 @@ def main():
     data = json.loads((ROOT / "data" / "data.json").read_text())
     bdate, bprice, rows = stats(cfg, data)
     OG.mkdir(parents=True, exist_ok=True)
-    site_card(cfg, bdate, bprice, rows, OG / "og.png")
+    site_card(cfg, bdate, bprice, rows, OG / "og.jpg")
     for r in rows:
         if not r["price"]:
             continue
-        model_card(cfg, bdate, bprice, r, OG / f"{r['id']}.png")
+        model_card(cfg, bdate, bprice, r, OG / f"{r['id']}.jpg")
 
     print(f"built cards for {len(rows)} models, BTC ${bprice:,.0f} on {bdate}")
     build_pages.main()

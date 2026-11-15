@@ -777,7 +777,7 @@
     const text = m
       ? `1 BTC buys ${ratio(m.ratio)} ${m.name}s today (${usd(m.price)} each, ${sats(m.sats)} sats). At launch it was ${ratio(m.launchRatio)}.`
       : `How many GPUs does 1 bitcoin buy? ${M.filter((x) => ["rtx-5090", "rx-9070-xt", "arc-b580"].includes(x.id)).map((x) => `${x.short}: ${ratio(x.ratio)}`).join(" · ")}`;
-    $("#sharePreview").src = `assets/img/og/${m ? m.id : "og"}.png?v=${DATA.updated.slice(0, 10)}`;
+    $("#sharePreview").src = `assets/img/og/${m ? m.id : "og"}.jpg?v=${DATA.updated.replace(/\D/g, "").slice(0, 10)}`;
     $("#shareText").textContent = text;
     const enc = encodeURIComponent;
     const btns = [
@@ -788,7 +788,7 @@
       `<a class="btn" target="_blank" rel="noopener" href="https://bsky.app/intent/compose?text=${enc(text + " " + url)}">Bluesky</a>`,
       `<button class="btn" data-act="nostr" type="button" title="Copy a note for Nostr">Nostr</button>`,
       `<button class="btn" data-act="copy" type="button">Copy link</button>`,
-      `<a class="btn" href="assets/img/og/${m ? m.id : "og"}.png" download="sats-per-silicon-${m ? m.id : "card"}.png">Download card</a>`,
+      `<a class="btn" href="assets/img/og/${m ? m.id : "og"}.jpg" download="sats-per-silicon-${m ? m.id : "card"}.jpg">Download card</a>`,
     ];
     $("#shareRow").innerHTML = btns.join("");
     $("#shareRow").onclick = async (e) => {
